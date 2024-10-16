@@ -1,9 +1,7 @@
 use std::{str::FromStr, sync::Arc};
 
 use axum::{
-    extract::{self, State},
-    response::IntoResponse,
-    Json,
+    extract::{self, State}, response::IntoResponse, Json
 };
 use constants::{ACCOUNT_VERSION, MAINNET_GENESIS_HASH, MAINNET_GENESIS_SEQUENCE};
 use db_handler::DBHandler;
@@ -60,23 +58,23 @@ pub async fn import_account_handler<T: DBHandler>(
                 .index
                 .parse::<u64>()
                 .unwrap();
-            shared
+            let result = shared
                 .rpc_handler
                 .get_account_status(RpcGetAccountStatusRequest {
                     account: account_name.clone(),
                 })
-                .map(|x| {
+                .and_then(|x| {
                     let head = x.data.account.head.unwrap_or(BlockInfo::default());
                     if latest_height - head.sequence > 1000 {
-                        let _ = shared.rpc_handler.set_scanning(RpcSetScanningRequest {
+                        shared.rpc_handler.set_scanning(RpcSetScanningRequest {
                             account: account_name.clone(),
                             enabled: false,
-                        });
-                        let _ = shared.rpc_handler.reset_account(RpcResetAccountRequest {
+                        })?;
+                        shared.rpc_handler.reset_account(RpcResetAccountRequest {
                             account: account_name.clone(),
                             reset_scanning_enabled: Some(false),
                             reset_created_at: Some(false),
-                        });
+                        })?;
                         let scan_request = ScanRequest {
                             address: public_address.clone(),
                             in_vk: incoming_view_key.clone(),
@@ -87,19 +85,24 @@ pub async fn import_account_handler<T: DBHandler>(
                         let signature = sign(&default_secp(), &msg[..], &shared.secp.sk)
                             .unwrap()
                             .to_string();
-                        let _ = shared.scan_handler.submit_scan_request(DecryptionMessage {
+                        shared.scan_handler.submit_scan_request(DecryptionMessage {
                             message: scan_request,
                             signature,
-                        });
+                        })?;
                     }
+                    Ok(RpcImportAccountResponse {
+                        name: account_name.clone(),
+                    })
+                });
+                match result {
+                    Ok(response) => 
                     RpcResponse {
                         status: 200,
-                        data: RpcImportAccountResponse {
-                            name: account_name.clone(),
-                        },
-                    }
-                })
-                .into_response()
+                        data: response,
+                    }.into_response(),
+
+                    Err(e) => e.into_response(),
+                }
         }
         Err(e) => e.into_response(),
     }
@@ -171,57 +174,75 @@ pub async fn rescan_account_handler<T: DBHandler>(
     State(shared): State<Arc<SharedState<T>>>,
     extract::Json(account): extract::Json<RpcGetAccountStatusRequest>,
 ) -> impl IntoResponse {
-    let db_account = shared.db_handler.get_account(account.account.clone()).await;
-    if let Err(e) = db_account {
-        return e.into_response();
+    match rescan_account(shared, account).await {
+        Ok(response) => 
+            RpcResponse {
+                status: 200,
+                data: response,
+            }.into_response(),
+        Err(err) => err.into_response(),
     }
-    let account = db_account.unwrap();
-    let _ = shared.rpc_handler.set_scanning(RpcSetScanningRequest {
+}
+
+
+async fn rescan_account<T: DBHandler>(
+    shared: Arc<SharedState<T>>,
+    account: RpcGetAccountStatusRequest,
+) -> Result<RescanAccountResponse, OreoError> {
+    let account = shared.db_handler.get_account(account.account.clone()).await?;
+    shared.rpc_handler.set_scanning(RpcSetScanningRequest {
         account: account.name.clone(),
         enabled: false,
-    });
-    let _ = shared.rpc_handler.reset_account(RpcResetAccountRequest {
+    })?;
+    shared.rpc_handler.reset_account(RpcResetAccountRequest {
         account: account.name.clone(),
         reset_scanning_enabled: Some(false),
         reset_created_at: Some(false),
-    });
-    let _ = shared
+    })?;
+    shared
         .db_handler
         .update_scan_status(account.address.clone(), true)
-        .await;
-    if let Ok(status) = shared
+        .await?;
+    let status = shared
         .rpc_handler
         .get_account_status(RpcGetAccountStatusRequest {
             account: account.name.clone(),
-        })
-    {
-        let head = status.data.account.head.unwrap_or(BlockInfo::default());
-        let scan_request = ScanRequest {
-            address: account.address.clone(),
-            in_vk: account.in_vk.clone(),
-            out_vk: account.out_vk.clone(),
-            head: Some(head),
-        };
-        let msg = bincode::serialize(&scan_request).unwrap();
-        let signature = sign(&default_secp(), &msg[..], &shared.secp.sk)
-            .unwrap()
-            .to_string();
-        let _ = shared.scan_handler.submit_scan_request(DecryptionMessage {
-            message: scan_request,
-            signature,
-        });
-    }
-    RpcResponse {
-        status: 200,
-        data: RescanAccountResponse { success: true },
-    }
-    .into_response()
+        })?;
+    let head = status.data.account.head.unwrap_or(BlockInfo::default());
+    let scan_request = ScanRequest {
+        address: account.address.clone(),
+        in_vk: account.in_vk.clone(),
+        out_vk: account.out_vk.clone(),
+        head: Some(head),
+    };
+    let msg = bincode::serialize(&scan_request).unwrap();
+    let signature = sign(&default_secp(), &msg[..], &shared.secp.sk)
+        .unwrap()
+        .to_string();
+    shared.scan_handler.submit_scan_request(DecryptionMessage {
+        message: scan_request,
+        signature,
+    })?;
+    Ok(RescanAccountResponse { success: true })
 }
 
 pub async fn update_scan_status_handler<T: DBHandler>(
     State(shared): State<Arc<SharedState<T>>>,
     extract::Json(response): extract::Json<DecryptionMessage<ScanResponse>>,
 ) -> impl IntoResponse {
+    match update_scan_status(shared, response).await {
+        Ok(response) => 
+            RpcResponse {
+                status: 200,
+                data: response,
+            }.into_response(),
+        Err(err) => err.into_response(),
+    }
+}
+pub async fn update_scan_status<T: DBHandler>(
+    shared: Arc<SharedState<T>>,
+    response: DecryptionMessage<ScanResponse>,
+) -> Result<SuccessResponse, OreoError> {
     let DecryptionMessage {
         mut message,
         signature,
@@ -236,25 +257,21 @@ pub async fn update_scan_status_handler<T: DBHandler>(
         &shared.secp.pk,
     ) {
         if x {
-            let db_account = shared.db_handler.get_account(message.account.clone()).await;
-            if let Err(e) = db_account {
-                return e.into_response();
-            }
-            let account = db_account.unwrap();
+            let account = shared.db_handler.get_account(message.account.clone()).await?;
             message.account = account.name.clone();
-            let _ = shared.rpc_handler.set_account_head(message);
-            let _ = shared.rpc_handler.set_scanning(RpcSetScanningRequest {
+            shared.rpc_handler.set_account_head(message)?;
+            shared.rpc_handler.set_scanning(RpcSetScanningRequest {
                 account: account.name.clone(),
                 enabled: true,
-            });
-            let _ = shared
+            })?;
+            shared
                 .db_handler
                 .update_scan_status(account.address, false)
-                .await;
-            return Json(SuccessResponse { success: true }).into_response();
+                .await?;
+            return Ok(SuccessResponse { success: true });
         }
     }
-    Json(SuccessResponse { success: false }).into_response()
+    Ok(SuccessResponse { success: false })
 }
 
 pub async fn get_balances_handler<T: DBHandler>(
