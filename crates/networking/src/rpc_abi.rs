@@ -104,6 +104,7 @@ pub struct RpcSetAccountHeadRequest {
     pub account: String,
     pub start: String,
     pub end: String,
+    pub latest: BlockIdentifier,
     pub blocks: Vec<BlockWithHash>,
 }
 
@@ -317,7 +318,7 @@ pub struct RpcGetBlockRequest {
     pub serialized: Option<bool>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct BlockIdentifier {
     pub index: String,
     pub hash: String,

@@ -1,4 +1,4 @@
-use std::{str::FromStr, sync::Arc};
+use std::{ops::Index, str::FromStr, sync::Arc};
 
 use axum::{
     extract::{self, State}, response::IntoResponse, Json
@@ -15,7 +15,7 @@ use networking::{
 };
 use oreo_errors::OreoError;
 use serde_json::json;
-use tracing::{error, info};
+use tracing::{debug, error, info};
 use utils::{default_secp, sign, verify, Signature};
 
 use crate::SharedState;
@@ -265,16 +265,25 @@ pub async fn update_scan_status<T: DBHandler>(
         if x {
             let account = shared.db_handler.get_account(message.account.clone()).await?;
             message.account = account.name.clone();
-            info!("set account message: {:?}", message.clone());
-            shared.rpc_handler.set_account_head(message)?;
-            shared.rpc_handler.set_scanning(RpcSetScanningRequest {
-                account: account.name.clone(),
-                enabled: true,
-            })?;
-            shared
-                .db_handler
-                .update_scan_status(account.address, false)
-                .await?;
+            let message_clone = message.clone();
+            debug!("set account message: {:?}", message.clone());
+            let latest_index = message.latest.index.parse::<i64>().map_err(|e| OreoError::ParseError(e.to_string()))?;
+            // don't update the head backwards if an older block comes in, unlikely but possible
+            if latest_index > account.head {
+                shared.rpc_handler.set_account_head(message)?;
+                shared.db_handler.set_head(account.address.clone(), latest_index).await?;
+            }
+            if message_clone.latest.hash == message_clone.end {
+                info!("Finished scanning account: {}", message_clone.account);
+                shared.rpc_handler.set_scanning(RpcSetScanningRequest {
+                    account: account.name.clone(),
+                    enabled: true,
+                })?;
+                shared
+                    .db_handler
+                    .update_scan_status(account.address, false)
+                    .await?;
+            }
             return Ok(SuccessResponse { success: true });
         }
     }

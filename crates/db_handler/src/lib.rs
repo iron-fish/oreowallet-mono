@@ -35,6 +35,8 @@ pub trait DBHandler {
     async fn save_blocks(&self, blocks: Vec<InnerBlock>) -> Result<(), OreoError>;
     /// Get compact blocks for dservice
     async fn get_blocks(&self, start: i64, end: i64) -> Result<Vec<InnerBlock>, OreoError>;
+    /// Set account head
+    async fn set_head(&self, address: String, index: i64) -> Result<String, OreoError>;
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, FromRow)]

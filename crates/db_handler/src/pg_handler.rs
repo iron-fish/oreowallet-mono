@@ -89,6 +89,18 @@ impl PgHandler {
         Ok(result)
     }
 
+    pub async fn set_head(&self, address: String, index: i64) -> Result<String, sqlx::Error> {
+        let result = sqlx::query(
+            "UPDATE wallet.account SET head = $1 WHERE address = $2 RETURNING name",
+        )
+        .bind(index)
+        .bind(address)
+        .fetch_one(&self.pool)
+        .await?
+        .get(0);
+        Ok(result)
+    }
+
     pub async fn get_many_need_scan(&self) -> Result<Vec<Account>, sqlx::Error> {
         let result = sqlx::query_as("SELECT * FROM wallet.account WHERE need_scan = true")
             .fetch_all(&self.pool)
@@ -218,6 +230,24 @@ impl DBHandler for PgHandler {
             Err(_) => Err(OreoError::NoImported(address)),
         }
     }
+
+    async fn set_head(
+        &self,
+        address: String,
+        index: i64,
+    ) -> Result<String, OreoError> {
+        match self.get_one(address.clone()).await {
+            Ok(account) => self
+                .set_head(account.address, index)
+                .await
+                .map_err(|e| match e {
+                    sqlx::Error::RowNotFound => OreoError::NoImported(address),
+                    _ => OreoError::DBError,
+                }),
+            Err(_) => Err(OreoError::NoImported(address)),
+        }
+    }
+
 
     async fn get_scan_accounts(&self) -> Result<Vec<Account>, OreoError> {
         self.get_many_need_scan()
