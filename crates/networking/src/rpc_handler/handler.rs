@@ -8,7 +8,7 @@ use ureq::{Agent, AgentBuilder, Error, Response};
 
 use crate::{
     rpc_abi::{
-        RpcBroadcastTxRequest, RpcBroadcastTxResponse, RpcCreateTxRequest, RpcCreateTxResponse, RpcExportAccountResponse, RpcGetAccountStatusRequest, RpcGetAccountStatusResponse, RpcGetAccountTransactionRequest, RpcGetAccountTransactionResponse, RpcGetBalancesRequest, RpcGetBalancesResponse, RpcGetBlockRequest, RpcGetBlockResponse, RpcGetBlocksRequest, RpcGetBlocksResponse, RpcGetLatestBlockResponse, RpcGetTransactionsRequest, RpcGetTransactionsResponse, RpcImportAccountRequest, RpcImportAccountResponse, RpcRemoveAccountRequest, RpcRemoveAccountResponse, RpcResetAccountRequest, RpcResponse, RpcSetAccountHeadRequest, RpcSetScanningRequest, SendTransactionRequest, SendTransactionResponse
+        RpcBroadcastTxRequest, RpcBroadcastTxResponse, RpcCreateTxRequest, RpcCreateTxResponse, RpcExportAccountResponse, RpcGetAccountStatusRequest, RpcGetAccountStatusResponse, RpcGetAccountTransactionRequest, RpcGetAccountTransactionResponse, RpcGetBalancesRequest, RpcGetBalancesResponse, RpcGetBlockRequest, RpcGetBlockResponse, RpcGetBlocksRequest, RpcGetBlocksResponse, RpcGetLatestBlockResponse, RpcGetTransactionsRequest, RpcGetTransactionsResponse, RpcImportAccountRequest, RpcImportAccountResponse, RpcRemoveAccountRequest, RpcRemoveAccountResponse, RpcResetAccountRequest, RpcResponse, RpcSetAccountHeadRequest, RpcSetScanningRequest, SendTransactionRequest, SendTransactionResponse, TransactionStatus
     },
     rpc_handler::RpcError, stream::RequestExt,
 };
@@ -136,16 +136,20 @@ impl RpcHandler {
     ) -> Result<RpcResponse<RpcGetTransactionsResponse>, OreoError> {
         let path = format!("http://{}/wallet/getAccountTransactions", self.endpoint);
         let resp = self.agent.clone().post(&path).send_json(&request);
+    
         match resp {
             Ok(response) => {
-                let transactions = response.collect_stream();
+                let transactions: Result<Vec<_>, OreoError> = response
+                    .into_stream::<TransactionStatus>()
+                    .collect();
+    
                 Ok(RpcResponse {
                     status: 200,
                     data: RpcGetTransactionsResponse {
                         transactions: transactions?,
                     },
                 })
-            },
+            }
             Err(e) => Err(OreoError::InternalRpcError(e.to_string())),
         }
     }

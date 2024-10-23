@@ -47,33 +47,45 @@ pub enum OreoError {
 
 impl IntoResponse for OreoError {
     fn into_response(self) -> Response {
-        let (status_code, err_msg) = match self {
-            OreoError::DBError => (StatusCode::from_u16(600).unwrap(), self.to_string()),
-            OreoError::Duplicate(_) => (StatusCode::from_u16(601).unwrap(), self.to_string()),
-            OreoError::NoImported(_) => (StatusCode::from_u16(602).unwrap(), self.to_string()),
-            OreoError::Scanning(_) => (StatusCode::from_u16(603).unwrap(), self.to_string()),
-            OreoError::Syncing => (StatusCode::from_u16(604).unwrap(), self.to_string()),
-            OreoError::InternalRpcError(_) => (StatusCode::from_u16(605).unwrap(), self.to_string()),
-            OreoError::GenerateSpendProofFailed(_) => {
-                (StatusCode::from_u16(606).unwrap(), self.to_string())
-            }
-            OreoError::GenerateOutputProofFailed(_) => {
-                (StatusCode::from_u16(607).unwrap(), self.to_string())
-            }
-            OreoError::GenerateMintAssetProofFailed(_) => {
-                (StatusCode::from_u16(608).unwrap(), self.to_string())
-            }
-            OreoError::BalanceNotEnough => (StatusCode::from_u16(609).unwrap(), self.to_string()),
-            OreoError::BadMintRequest => (StatusCode::from_u16(610).unwrap(), self.to_string()),
-            OreoError::TransactionNotFound => {
-                (StatusCode::from_u16(611).unwrap(), self.to_string())
-            }
-            OreoError::SeralizeError(_) => (StatusCode::from_u16(612).unwrap(), self.to_string()),
-            OreoError::ParseError(_) => (StatusCode::from_u16(613).unwrap(), self.to_string()),
-            OreoError::DServerError(_) => (StatusCode::from_u16(614).unwrap(), self.to_string()),
-            OreoError::AccountStatusError(_) => (StatusCode::from_u16(615).unwrap(), self.to_string()),
-            OreoError::Unauthorized => (StatusCode::UNAUTHORIZED, self.to_string()),
-        };
+        let (status_code, err_msg) = get_status_code(self);
         Json(json!({"code": status_code.as_u16(), "error": err_msg})).into_response()
     }
+}
+
+impl From<OreoError> for Response {
+    fn from(err: OreoError) -> Response {
+        let (status_code, err_msg) = get_status_code(err);
+        Json(json!({"code": status_code.as_u16(), "error": err_msg})).into_response()
+    }
+}
+
+pub fn get_status_code(err: OreoError) -> (StatusCode, String) {
+    let (status_code, err_msg) = match err {
+        OreoError::DBError => (StatusCode::from_u16(600).unwrap(), err.to_string()),
+        OreoError::Duplicate(_) => (StatusCode::from_u16(601).unwrap(), err.to_string()),
+        OreoError::NoImported(_) => (StatusCode::from_u16(602).unwrap(), err.to_string()),
+        OreoError::Scanning(_) => (StatusCode::from_u16(603).unwrap(), err.to_string()),
+        OreoError::Syncing => (StatusCode::from_u16(604).unwrap(), err.to_string()),
+        OreoError::InternalRpcError(_) => (StatusCode::from_u16(605).unwrap(), err.to_string()),
+        OreoError::GenerateSpendProofFailed(_) => {
+            (StatusCode::from_u16(606).unwrap(), err.to_string())
+        }
+        OreoError::GenerateOutputProofFailed(_) => {
+            (StatusCode::from_u16(607).unwrap(), err.to_string())
+        }
+        OreoError::GenerateMintAssetProofFailed(_) => {
+            (StatusCode::from_u16(608).unwrap(), err.to_string())
+        }
+        OreoError::BalanceNotEnough => (StatusCode::from_u16(609).unwrap(), err.to_string()),
+        OreoError::BadMintRequest => (StatusCode::from_u16(610).unwrap(), err.to_string()),
+        OreoError::TransactionNotFound => {
+            (StatusCode::from_u16(611).unwrap(), err.to_string())
+        }
+        OreoError::SeralizeError(_) => (StatusCode::from_u16(612).unwrap(), err.to_string()),
+        OreoError::ParseError(_) => (StatusCode::from_u16(613).unwrap(), err.to_string()),
+        OreoError::DServerError(_) => (StatusCode::from_u16(614).unwrap(), err.to_string()),
+        OreoError::AccountStatusError(_) => (StatusCode::from_u16(615).unwrap(), err.to_string()),
+        OreoError::Unauthorized => (StatusCode::from_u16(401).unwrap(), err.to_string()),
+    };
+    (status_code, err_msg)
 }
