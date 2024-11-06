@@ -242,18 +242,15 @@ pub async fn update_scan_status_handler<T: DBHandler>(
             }
             let account = db_account.unwrap();
             message.account = account.name.clone();
-            let scan_complete = message.scan_complete;
             let _ = shared.rpc_handler.set_account_head(message);
-            if scan_complete {
-                let _ = shared.rpc_handler.set_scanning(RpcSetScanningRequest {
-                    account: account.name.clone(),
-                    enabled: true,
-                });
-                let _ = shared
-                    .db_handler
-                    .update_scan_status(account.address, false)
-                    .await;
-            }
+            let _ = shared.rpc_handler.set_scanning(RpcSetScanningRequest {
+                account: account.name.clone(),
+                enabled: true,
+            });
+            let _ = shared
+                .db_handler
+                .update_scan_status(account.address, false)
+                .await;
             return Json(SuccessResponse { success: true }).into_response();
         }
     }

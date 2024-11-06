@@ -7,7 +7,6 @@ use std::{
 };
 
 use anyhow::Result;
-use constants::{MAINNET_GENESIS_HASH, MAINNET_GENESIS_SEQUENCE};
 use db_handler::{DBHandler, PgHandler};
 use futures::{SinkExt, StreamExt};
 use networking::{
@@ -267,11 +266,7 @@ impl Manager {
     pub async fn update_account(&self, response: DResponse) -> Result<()> {
         let address = response.address.clone();
         let task_id = response.id.clone();
-        let mut update_account = false;
-        let mut latest_scanned_block = BlockInfo {
-            hash: MAINNET_GENESIS_HASH.to_string(),
-            sequence: MAINNET_GENESIS_SEQUENCE as u64,
-        };
+        let mut should_clear_account = false;
         match self.account_mappling.write().await.get_mut(&address) {
             Some(account) => {
                 if let Some(task_info) = self.task_mapping.read().await.get(&task_id) {
@@ -289,14 +284,8 @@ impl Manager {
                         );
                     }
                     account.remaining_task -= 1;
-                    if account.remaining_task % 5000 == 0 {
-                        update_account = true;
-                    }
-                    if task_info.sequence > latest_scanned_block.sequence as i64 {
-                        latest_scanned_block = BlockInfo {
-                            hash: task_info.hash.clone(),
-                            sequence: task_info.sequence as u64,
-                        };
+                    if account.remaining_task == 0 {
+                        should_clear_account = true;
                     }
                 }
             }
@@ -304,7 +293,8 @@ impl Manager {
                 error!("bad response whose request account doesn't exist, should never happen")
             }
         }
-        if update_account {
+        if should_clear_account {
+            info!("account scaning completed, {}", address);
             let account_info = self
                 .account_mappling
                 .read()
@@ -315,8 +305,7 @@ impl Manager {
             let set_account_head_request = RpcSetAccountHeadRequest {
                 account: address.clone(),
                 start: account_info.start_block.hash.to_string(),
-                end: latest_scanned_block.hash.clone(),
-                scan_complete: account_info.remaining_task == 0,
+                end: account_info.end_block.hash.to_string(),
                 blocks: account_info
                     .blocks
                     .iter()
@@ -337,7 +326,7 @@ impl Manager {
             };
             match self.shared.server_handler.submit_scan_response(request) {
                 Ok(msg) => {
-                    if msg.success && account_info.end_block.hash == latest_scanned_block.hash {
+                    if msg.success {
                         let _ = self.account_mappling.write().await.remove(&address);
                     }
                 }

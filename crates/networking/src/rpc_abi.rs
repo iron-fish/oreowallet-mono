@@ -104,13 +104,12 @@ pub struct BlockWithHash {
     pub transactions: Vec<TransactionWithHash>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct RpcSetAccountHeadRequest {
     pub account: String,
     pub start: String,
     pub end: String,
     pub blocks: Vec<BlockWithHash>,
-    pub scan_complete: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
