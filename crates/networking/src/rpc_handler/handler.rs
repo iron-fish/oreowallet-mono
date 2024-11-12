@@ -8,9 +8,18 @@ use ureq::{Agent, AgentBuilder, Error, Response};
 
 use crate::{
     rpc_abi::{
-        RpcBroadcastTxRequest, RpcBroadcastTxResponse, RpcCreateTxRequest, RpcCreateTxResponse, RpcExportAccountResponse, RpcGetAccountStatusRequest, RpcGetAccountStatusResponse, RpcGetAccountTransactionRequest, RpcGetAccountTransactionResponse, RpcGetBalancesRequest, RpcGetBalancesResponse, RpcGetBlockRequest, RpcGetBlockResponse, RpcGetBlocksRequest, RpcGetBlocksResponse, RpcGetLatestBlockResponse, RpcGetTransactionsRequest, RpcGetTransactionsResponse, RpcImportAccountRequest, RpcImportAccountResponse, RpcRemoveAccountRequest, RpcRemoveAccountResponse, RpcResetAccountRequest, RpcResponse, RpcSetAccountHeadRequest, RpcSetScanningRequest, SendTransactionRequest, SendTransactionResponse, TransactionStatus
+        RpcBroadcastTxRequest, RpcBroadcastTxResponse, RpcCreateTxRequest, RpcCreateTxResponse,
+        RpcExportAccountResponse, RpcGetAccountStatusRequest, RpcGetAccountStatusResponse,
+        RpcGetAccountTransactionRequest, RpcGetAccountTransactionResponse, RpcGetBalancesRequest,
+        RpcGetBalancesResponse, RpcGetBlockRequest, RpcGetBlockResponse, RpcGetBlocksRequest,
+        RpcGetBlocksResponse, RpcGetLatestBlockResponse, RpcGetTransactionsRequest,
+        RpcGetTransactionsResponse, RpcImportAccountRequest, RpcImportAccountResponse,
+        RpcRemoveAccountRequest, RpcRemoveAccountResponse, RpcResetAccountRequest, RpcResponse,
+        RpcSetAccountHeadRequest, RpcSetScanningRequest, SendTransactionRequest,
+        SendTransactionResponse, TransactionStatus,
     },
-    rpc_handler::RpcError, stream::RequestExt,
+    rpc_handler::RpcError,
+    stream::RequestExt,
 };
 
 #[derive(Debug, Clone)]
@@ -35,7 +44,8 @@ impl RpcHandler {
         request: RpcImportAccountRequest,
     ) -> Result<RpcResponse<RpcImportAccountResponse>, OreoError> {
         let path = format!("http://{}/wallet/importAccount", self.endpoint);
-        let account_str = serde_json::to_string(&request).map_err(|_|OreoError::InternalRpcError("JSON serialization failed".to_string()))?;
+        let account_str = serde_json::to_string(&request)
+            .map_err(|_| OreoError::InternalRpcError("JSON serialization failed".to_string()))?;
         let resp = self
             .agent
             .clone()
@@ -129,20 +139,19 @@ impl RpcHandler {
         let resp = self.agent.clone().post(&path).send_json(&request);
         handle_response(resp)
     }
-    
+
     pub fn get_transactions(
         &self,
         request: RpcGetTransactionsRequest,
     ) -> Result<RpcResponse<RpcGetTransactionsResponse>, OreoError> {
         let path = format!("http://{}/wallet/getAccountTransactions", self.endpoint);
         let resp = self.agent.clone().post(&path).send_json(&request);
-    
+
         match resp {
             Ok(response) => {
-                let transactions: Result<Vec<_>, OreoError> = response
-                    .into_stream::<TransactionStatus>()
-                    .collect();
-    
+                let transactions: Result<Vec<_>, OreoError> =
+                    response.into_stream::<TransactionStatus>().collect();
+
                 Ok(RpcResponse {
                     status: 200,
                     data: RpcGetTransactionsResponse {
@@ -167,7 +176,7 @@ impl RpcHandler {
         &self,
         request: RpcBroadcastTxRequest,
     ) -> Result<RpcResponse<RpcBroadcastTxResponse>, OreoError> {
-        let path = format!("http://{}/chain/broadcastTransaction", self.endpoint);
+        let path = format!("http://{}/wallet/addTransaction", self.endpoint);
         let resp = self.agent.clone().post(&path).send_json(&request);
         handle_response(resp)
     }
@@ -201,7 +210,11 @@ impl RpcHandler {
             .agent
             .clone()
             .post(&path)
-            .send_json(RpcGetBlocksRequest { start, end, serialized: true });
+            .send_json(RpcGetBlocksRequest {
+                start,
+                end,
+                serialized: true,
+            });
         handle_response(resp)
     }
 
