@@ -1,6 +1,6 @@
 use axum::{response::IntoResponse, Json};
 use constants::IRON_NATIVE_ASSET;
-use serde::{ Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use ureq::json;
 
 use crate::orescriptions::{get_ores, is_ores_local, Ores};
@@ -13,7 +13,7 @@ pub struct RpcResponse<T> {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct RpcResponseStream<T> {
-    pub data: T
+    pub data: T,
 }
 
 impl<T: Serialize> IntoResponse for RpcResponse<T> {
@@ -232,15 +232,14 @@ pub struct RpcCreateTxResponse {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct RpcBroadcastTxRequest {
+pub struct RpcAddTransactionRequest {
     pub transaction: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct RpcBroadcastTxResponse {
+pub struct RpcAddTransactionResponse {
     pub hash: String,
     pub accepted: bool,
-    pub broadcasted: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
