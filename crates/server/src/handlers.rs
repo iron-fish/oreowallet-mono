@@ -9,10 +9,7 @@ use constants::{ACCOUNT_VERSION, MAINNET_GENESIS_SEQUENCE};
 use db_handler::DBHandler;
 use networking::{
     decryption_message::{DecryptionMessage, ScanRequest, ScanResponse, SuccessResponse}, rpc_abi::{
-        BlockInfo, OutPut, RpcBroadcastTxRequest, RpcCreateTxRequest, RpcGetAccountStatusRequest,
-        RpcGetAccountTransactionRequest, RpcGetBalancesRequest, RpcGetBalancesResponse,
-        RpcGetTransactionsRequest, RpcImportAccountRequest, RpcImportAccountResponse,
-        RpcRemoveAccountRequest, RpcResetAccountRequest, RpcResponse, RpcSetScanningRequest,
+        BlockInfo, OutPut, RpcBroadcastTxRequest, RpcCreateTxRequest, RpcGetAccountStatusRequest, RpcGetAccountTransactionRequest, RpcGetAssetInfoRequest, RpcGetBalancesRequest, RpcGetBalancesResponse, RpcGetTransactionsRequest, RpcImportAccountRequest, RpcImportAccountResponse, RpcRemoveAccountRequest, RpcResetAccountRequest, RpcResponse, RpcSetScanningRequest
     }, web_abi::{GetTransactionDetailResponse, ImportAccountRequest, RescanAccountResponse}
 };
 use oreo_errors::OreoError;
@@ -392,8 +389,19 @@ pub async fn get_transactions_handler<T: DBHandler>(
         .get_transactions(RpcGetTransactionsRequest {
             account: db_account.unwrap().name,
             limit: Some(get_transactions.limit.unwrap_or(6)),
+            offset: Some(get_transactions.offset.unwrap_or(0)),
             reverse: Some(true),
         })
+        .into_response()
+}
+
+pub async fn get_asset_info<T: DBHandler>(
+    State(shared): State<Arc<SharedState<T>>>,
+    extract::Json(get_asset_info): extract::Json<RpcGetAssetInfoRequest>,
+) -> impl IntoResponse {
+    shared
+        .rpc_handler
+        .get_asset_info(get_asset_info)
         .into_response()
 }
 

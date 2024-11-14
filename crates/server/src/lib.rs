@@ -15,7 +15,7 @@ use tower_http::cors::{Any, CorsLayer};
 use tracing::info;
 
 use crate::handlers::{
-    account_status_handler, broadcast_transaction_handler, create_transaction_handler,
+    account_status_handler, broadcast_transaction_handler, create_transaction_handler, get_asset_info,
     get_balances_handler, get_ores_handler, get_transaction_handler, get_transactions_handler,
     health_check_handler, import_account_handler, latest_block_handler, remove_account_handler,
     rescan_account_handler, update_scan_status_handler,
@@ -123,6 +123,7 @@ pub async fn run_server(
         .route("/rescan", post(rescan_account_handler))
         .route("/healthCheck", get(health_check_handler))
         .route("/updateScan", post(update_scan_status_handler))
+        .route("/getAsset", post(get_asset_info))
         .with_state(shared_resource.clone());
 
     if env::var("ENABLE_AUTH").unwrap_or_else(|_| "false".to_string()) == "true" {

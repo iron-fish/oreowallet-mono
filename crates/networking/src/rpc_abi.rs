@@ -247,6 +247,7 @@ pub struct RpcBroadcastTxResponse {
 pub struct RpcGetTransactionsRequest {
     pub account: String,
     pub limit: Option<u32>,
+    pub offset: Option<u32>,
     pub reverse: Option<bool>,
 }
 
@@ -383,4 +384,34 @@ pub struct SendTransactionRequest {
 pub struct SendTransactionResponse {
     pub account: String,
     pub hash: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct RpcGetAssetInfoRequest {
+    pub id: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RpcAsset {
+    pub id: String,
+    pub name: String,
+    pub nonce: u32, // This can be a u8 or something I think
+    pub owner: String,
+    pub creator: String,
+    pub metadata: String,
+    pub created_transaction_hash: String,
+    pub verification: RpcAssetVerification,
+    pub supply: Option<String>,
+    pub status: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RpcAssetVerification {
+    pub status: String,
+    pub symbol: String,
+    pub decimals: Option<u32>, // TODO u8
+    pub logo_uri: Option<String>,
+    pub website: Option<String>,
 }

@@ -8,7 +8,7 @@ use ureq::{Agent, AgentBuilder, Error, Response};
 
 use crate::{
     rpc_abi::{
-        RpcBroadcastTxRequest, RpcBroadcastTxResponse, RpcCreateTxRequest, RpcCreateTxResponse, RpcExportAccountResponse, RpcGetAccountStatusRequest, RpcGetAccountStatusResponse, RpcGetAccountTransactionRequest, RpcGetAccountTransactionResponse, RpcGetBalancesRequest, RpcGetBalancesResponse, RpcGetBlockRequest, RpcGetBlockResponse, RpcGetBlocksRequest, RpcGetBlocksResponse, RpcGetLatestBlockResponse, RpcGetTransactionsRequest, RpcGetTransactionsResponse, RpcImportAccountRequest, RpcImportAccountResponse, RpcRemoveAccountRequest, RpcRemoveAccountResponse, RpcResetAccountRequest, RpcResponse, RpcSetAccountHeadRequest, RpcSetScanningRequest, SendTransactionRequest, SendTransactionResponse, TransactionStatus
+        RpcAsset, RpcBroadcastTxRequest, RpcBroadcastTxResponse, RpcCreateTxRequest, RpcCreateTxResponse, RpcExportAccountResponse, RpcGetAccountStatusRequest, RpcGetAccountStatusResponse, RpcGetAccountTransactionRequest, RpcGetAccountTransactionResponse, RpcGetAssetInfoRequest, RpcGetBalancesRequest, RpcGetBalancesResponse, RpcGetBlockRequest, RpcGetBlockResponse, RpcGetBlocksRequest, RpcGetBlocksResponse, RpcGetLatestBlockResponse, RpcGetTransactionsRequest, RpcGetTransactionsResponse, RpcImportAccountRequest, RpcImportAccountResponse, RpcRemoveAccountRequest, RpcRemoveAccountResponse, RpcResetAccountRequest, RpcResponse, RpcSetAccountHeadRequest, RpcSetScanningRequest, SendTransactionRequest, SendTransactionResponse, TransactionStatus
     },
     rpc_handler::RpcError, stream::RequestExt,
 };
@@ -210,6 +210,15 @@ impl RpcHandler {
         request: SendTransactionRequest,
     ) -> Result<RpcResponse<SendTransactionResponse>, OreoError> {
         let path = format!("http://{}/wallet/sendTransaction", self.endpoint);
+        let resp = self.agent.clone().post(&path).send_json(request);
+        handle_response(resp)
+    }
+
+    pub fn get_asset_info(
+        &self,
+        request: RpcGetAssetInfoRequest,
+    ) -> Result<RpcResponse<RpcAsset>, OreoError> {
+        let path = format!("http://{}/chain/getAsset", self.endpoint);
         let resp = self.agent.clone().post(&path).send_json(request);
         handle_response(resp)
     }
