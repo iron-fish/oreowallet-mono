@@ -3,6 +3,7 @@ on:
   push:
     branches:
       'developer'
+  workflow_dispatch:
 
 permissions:
   contents: read
