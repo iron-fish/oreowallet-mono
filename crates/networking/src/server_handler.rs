@@ -29,7 +29,7 @@ impl ServerHandler {
         request: DecryptionMessage<ScanRequest>,
     ) -> Result<SuccessResponse, OreoError> {
         let path = format!("http://{}/scanAccount", self.endpoint);
-        let resp = self.agent.clone().post(&path).send_json(&request);
+        let resp = self.agent.clone().post(&path).send_json(request);
         handle_response(resp)
     }
 
@@ -38,7 +38,7 @@ impl ServerHandler {
         request: DecryptionMessage<ScanResponse>,
     ) -> Result<SuccessResponse, OreoError> {
         let path = format!("http://{}/updateScan", self.endpoint);
-        let resp = self.agent.clone().post(&path).send_json(&request);
+        let resp = self.agent.clone().post(&path).send_json(request);
         handle_response(resp)
     }
 }

@@ -21,6 +21,6 @@ async fn main() -> Result<()> {
     let Command { listen, verbosity } = args;
     initialize_logger(verbosity);
     handle_signals().await?;
-    run_prover(listen.into()).await?;
+    run_prover(listen).await?;
     Ok(())
 }

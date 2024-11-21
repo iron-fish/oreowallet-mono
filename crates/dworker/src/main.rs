@@ -26,14 +26,11 @@ async fn main() -> Result<()> {
     initialize_logger(args.verbosity);
     handle_signals().await?;
     if args.name.is_none() {
-        args.name = Some(
-            format!(
-                "dworker-{:?}-{}",
-                gethostname::gethostname(),
-                rand::thread_rng().gen::<u8>()
-            )
-            .into(),
-        );
+        args.name = Some(format!(
+            "dworker-{:?}-{}",
+            gethostname::gethostname(),
+            rand::thread_rng().gen::<u8>()
+        ));
     }
     info!(
         "Start connecting to scheduler: {:?} with name {:?}",

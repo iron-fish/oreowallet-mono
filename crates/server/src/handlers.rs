@@ -8,16 +8,18 @@ use axum::{
 use constants::{ACCOUNT_VERSION, MAINNET_GENESIS_SEQUENCE};
 use db_handler::DBHandler;
 use networking::{
-    decryption_message::{DecryptionMessage, ScanRequest, ScanResponse, SuccessResponse}, rpc_abi::{
+    decryption_message::{DecryptionMessage, ScanRequest, ScanResponse, SuccessResponse},
+    rpc_abi::{
         BlockInfo, OutPut, RpcBroadcastTxRequest, RpcCreateTxRequest, RpcGetAccountStatusRequest,
         RpcGetAccountTransactionRequest, RpcGetBalancesRequest, RpcGetBalancesResponse,
         RpcGetTransactionsRequest, RpcImportAccountRequest, RpcImportAccountResponse,
         RpcRemoveAccountRequest, RpcResetAccountRequest, RpcResponse, RpcSetScanningRequest,
-    }, web_abi::{GetTransactionDetailResponse, ImportAccountRequest, RescanAccountResponse}
+    },
+    web_abi::{GetTransactionDetailResponse, ImportAccountRequest, RescanAccountResponse},
 };
 use oreo_errors::OreoError;
 use serde_json::json;
-use tracing::{debug, error, info};
+use tracing::{error, info};
 use utils::{default_secp, sign, verify, Signature};
 
 use crate::SharedState;
@@ -258,7 +260,8 @@ pub async fn update_scan_status_handler<T: DBHandler>(
                 return e.into_response();
             }
             let account = db_account.unwrap();
-            let reset_created_at = account.create_head.is_none() || account.create_head.unwrap() == 1;
+            let reset_created_at =
+                account.create_head.is_none() || account.create_head.unwrap() == 1;
             let reset = shared.rpc_handler.reset_account(RpcResetAccountRequest {
                 account: account.name.clone(),
                 reset_scanning_enabled: Some(false),

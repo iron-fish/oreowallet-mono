@@ -20,7 +20,7 @@ impl TryFrom<RpcError> for OreoError {
             "insufficient-balance" => Ok(OreoError::BalanceNotEnough),
             "account-exists" => {
                 // Should never happen
-                return Ok(OreoError::Duplicate("0x00".to_string()));
+                Ok(OreoError::Duplicate("0x00".to_string()))
             }
             _ => Ok(OreoError::InternalRpcError(value.message)),
         }

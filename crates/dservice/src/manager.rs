@@ -110,7 +110,7 @@ where
 {
     pub fn new(db_handler: T, endpoint: &str, server: &str, secp_key: SecpKey) -> Self {
         Self {
-            db_handler: db_handler,
+            db_handler,
             rpc_handler: RpcHandler::new(endpoint.into()),
             server_handler: ServerHandler::new(server.into()),
             secp_key,
@@ -158,7 +158,7 @@ impl Manager {
                 let ServerMessage { name, request } = message;
                 match name {
                     Some(name) => {
-                        let _ = worker_server_clone
+                        worker_server_clone
                             .workers
                             .write()
                             .await
@@ -201,7 +201,7 @@ impl Manager {
                                                 let _ = worker_server.workers.write().await.insert(worker_name.clone(), worker);
                                                 match worker_server.task_queue.write().await.pop() {
                                                     Some((task, _)) => {
-                                                        let _ = tx.send(ServerMessage { name: Some(worker_name.clone()), request: task }).await.unwrap();
+                                                        tx.send(ServerMessage { name: Some(worker_name.clone()), request: task }).await.unwrap();
                                                     },
                                                     None => {},
                                                 }
@@ -213,7 +213,7 @@ impl Manager {
                                         debug!("new response from worker {}", response.id);
                                         match worker_server.task_queue.write().await.pop() {
                                             Some((task, _)) => {
-                                                let _ = tx.send(ServerMessage { name: None, request: task }).await.unwrap();
+                                                tx.send(ServerMessage { name: None, request: task }).await.unwrap();
                                             },
                                             None => worker_server.workers.write().await.get_mut(&worker_name).unwrap().status = 1,
                                         }

@@ -250,7 +250,7 @@ pub async fn run_dserver(
                         }
                     };
 
-                    let _ = scheduling_tasks(schduler.clone(), &accounts_should_scan, blocks)
+                    scheduling_tasks(schduler.clone(), &accounts_should_scan, blocks)
                         .await
                         .unwrap();
                     // avoid too much memory usage
@@ -286,7 +286,7 @@ pub async fn run_dserver(
                         {
                             if let Ok(block) = secondary.shared.rpc_handler.get_block(sequence) {
                                 let block = block.data.block.to_inner();
-                                let _ = scheduling_tasks(
+                                scheduling_tasks(
                                     secondary.clone(),
                                     &vec![ScanRequest {
                                         address: address.clone(),
@@ -366,7 +366,7 @@ pub async fn account_scanner_handler(
         &manager.shared.secp_key.pk,
     ) {
         if x {
-            let _ = manager.accounts_to_scan.write().await.push(message);
+            manager.accounts_to_scan.write().await.push(message);
             return Json(SuccessResponse { success: true });
         }
     }

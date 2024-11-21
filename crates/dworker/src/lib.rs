@@ -72,7 +72,7 @@ pub async fn decrypt(worker_pool: Arc<ThreadPool>, request: DRequest) -> DRespon
                         Err(_) => {}
                     }
                 }
-                return None;
+                None
             })
             .collect();
         decrypted.into_iter().flatten().collect()
@@ -151,7 +151,7 @@ pub async fn handle_connection(
     let heart_beat_handler = tokio::spawn(async move {
         let _ = router.send(());
         loop {
-            let _ = heart_beat_tx
+            heart_beat_tx
                 .send(DMessage::RegisterWorker(RegisterWorker {
                     name: worker_name.clone(),
                 }))

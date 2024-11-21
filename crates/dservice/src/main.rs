@@ -36,8 +36,8 @@ async fn main() -> Result<()> {
     let pk = std::env::var("PUBLIC_KEY").expect("PUBLIC_KEY not provided in env");
     let mut sk_u8 = [0u8; 32];
     let mut pk_u8 = [0u8; 33];
-    let _ = hex::decode_to_slice(sk, &mut sk_u8).unwrap();
-    let _ = hex::decode_to_slice(pk, &mut pk_u8).unwrap();
+    hex::decode_to_slice(sk, &mut sk_u8).unwrap();
+    hex::decode_to_slice(pk, &mut pk_u8).unwrap();
     let args = Command::parse();
     let Command {
         dlisten,
@@ -51,15 +51,6 @@ async fn main() -> Result<()> {
     handle_signals().await?;
     let db_config = DbConfig::load(dbconfig).unwrap();
     let db_handler = PgHandler::from_config(&db_config);
-    run_dserver(
-        dlisten.into(),
-        restful.into(),
-        node,
-        db_handler,
-        server,
-        sk_u8,
-        pk_u8,
-    )
-    .await?;
+    run_dserver(dlisten, restful, node, db_handler, server, sk_u8, pk_u8).await?;
     Ok(())
 }

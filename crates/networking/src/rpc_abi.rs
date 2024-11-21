@@ -1,6 +1,6 @@
 use axum::{response::IntoResponse, Json};
 use constants::IRON_NATIVE_ASSET;
-use serde::{ Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use ureq::json;
 
 use crate::orescriptions::{get_ores, is_ores_local, Ores};
@@ -13,7 +13,7 @@ pub struct RpcResponse<T> {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct RpcResponseStream<T> {
-    pub data: T
+    pub data: T,
 }
 
 impl<T: Serialize> IntoResponse for RpcResponse<T> {
@@ -150,11 +150,10 @@ impl RpcGetBalancesResponse {
                 .balances
                 .into_iter()
                 .filter(|x| {
-                    x.asset_verification.status == "verified".to_string()
+                    x.asset_verification.status == *"verified"
                         || x.asset_id == IRON_NATIVE_ASSET
                         || x.asset_name
-                            == "6f7265736372697074696f6e7300000000000000000000000000000000000000"
-                                .to_string()
+                            == *"6f7265736372697074696f6e7300000000000000000000000000000000000000"
                 })
                 .collect::<Vec<AssetBalance>>(),
             ..base

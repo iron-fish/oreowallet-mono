@@ -15,9 +15,9 @@ pub struct Ores {
 }
 
 pub fn is_ores_local(asset: &AssetBalance) -> bool {
-    asset.asset_id != IRON_NATIVE_ASSET.to_string()
-        && asset.confirmed == OREOS_VALUE.to_string()
-        && asset.unconfirmed == OREOS_VALUE.to_string()
+    asset.asset_id != *IRON_NATIVE_ASSET
+        && asset.confirmed == *OREOS_VALUE
+        && asset.unconfirmed == *OREOS_VALUE
 }
 
 pub async fn get_ores(id: &str) -> anyhow::Result<Ores> {
