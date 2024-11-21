@@ -8,12 +8,15 @@ use axum::{
 use constants::{ACCOUNT_VERSION, MAINNET_GENESIS_SEQUENCE};
 use db_handler::DBHandler;
 use networking::{
-    decryption_message::{DecryptionMessage, ScanRequest, ScanResponse, SuccessResponse}, rpc_abi::{
-        BlockInfo, OutPut, RpcBroadcastTxRequest, RpcCreateTxRequest, RpcGetAccountStatusRequest,
-        RpcGetAccountTransactionRequest, RpcGetBalancesRequest, RpcGetBalancesResponse,
-        RpcGetTransactionsRequest, RpcImportAccountRequest, RpcImportAccountResponse,
-        RpcRemoveAccountRequest, RpcResetAccountRequest, RpcResponse, RpcSetScanningRequest,
-    }, web_abi::{GetTransactionDetailResponse, ImportAccountRequest, RescanAccountResponse}
+    decryption_message::{DecryptionMessage, ScanRequest, ScanResponse, SuccessResponse},
+    rpc_abi::{
+        BlockInfo, OutPut, RpcAddTransactionRequest, RpcCreateTxRequest,
+        RpcGetAccountStatusRequest, RpcGetAccountTransactionRequest, RpcGetBalancesRequest,
+        RpcGetBalancesResponse, RpcGetTransactionsRequest, RpcImportAccountRequest,
+        RpcImportAccountResponse, RpcRemoveAccountRequest, RpcResetAccountRequest, RpcResponse,
+        RpcSetScanningRequest,
+    },
+    web_abi::{GetTransactionDetailResponse, ImportAccountRequest, RescanAccountResponse},
 };
 use oreo_errors::OreoError;
 use serde_json::json;
@@ -258,7 +261,8 @@ pub async fn update_scan_status_handler<T: DBHandler>(
                 return e.into_response();
             }
             let account = db_account.unwrap();
-            let reset_created_at = account.create_head.is_none() || account.create_head.unwrap() == 1;
+            let reset_created_at =
+                account.create_head.is_none() || account.create_head.unwrap() == 1;
             let reset = shared.rpc_handler.reset_account(RpcResetAccountRequest {
                 account: account.name.clone(),
                 reset_scanning_enabled: Some(false),
@@ -436,13 +440,13 @@ pub async fn create_transaction_handler<T: DBHandler>(
         .into_response()
 }
 
-pub async fn broadcast_transaction_handler<T: DBHandler>(
+pub async fn add_transaction_handler<T: DBHandler>(
     State(shared): State<Arc<SharedState<T>>>,
-    extract::Json(broadcast_transaction): extract::Json<RpcBroadcastTxRequest>,
+    extract::Json(add_transaction): extract::Json<RpcAddTransactionRequest>,
 ) -> impl IntoResponse {
     shared
         .rpc_handler
-        .broadcast_transaction(broadcast_transaction)
+        .add_transaction(add_transaction)
         .into_response()
 }
 
