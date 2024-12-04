@@ -21,9 +21,11 @@ pub async fn load_checkpoint(rpc_node: String, db_handler: PgHandler) -> anyhow:
             loop {
                 match rpc_handler.get_blocks(group.start, group.end) {
                     Ok(res) => break res,
-                    Err(_) => {}
+                    Err(e) => {
+                        info!("Error rpc_handler.get_blocks: {:?}", e);
+                    }
                 }
-                sleep(Duration::from_secs(3)).await;
+                sleep(Duration::from_secs(2)).await;
             }
         };
         let blocks: Vec<RpcBlock> = results
@@ -48,10 +50,12 @@ pub async fn load_checkpoint(rpc_node: String, db_handler: PgHandler) -> anyhow:
                 ),
             })
             .collect();
-        info!(
-            "save blocks from {} to {} in local db",
-            group.start, group.end
-        );
+        if group.end % 1000 == 0 {
+            info!(
+                "save blocks from {} to {} in local db",
+                group.start, group.end
+            );
+        }
         let _ = db_handler.save_blocks(inner_blocks).await;
     }
     Ok(())

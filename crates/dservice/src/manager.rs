@@ -251,6 +251,7 @@ impl Manager {
                             },
                             _ => {
                                 warn!("unknown message");
+                                // TODO: This causes a crash - need to deregister worker if this unwrap fails?
                                 let _ = worker_server.workers.write().await.remove(&worker_name).unwrap();
                                 break;
                             },
@@ -277,7 +278,7 @@ impl Manager {
                 if let Some(task_info) = self.task_mapping.read().await.get(&task_id) {
                     let block_hash = task_info.hash.to_string();
                     if !response.data.is_empty() {
-                        info!("account info: {:?}", account);
+                        // info!("account info: {:?}", account);
                         info!("new available block {} for account {}", block_hash, address);
                         account.blocks.insert(
                             block_hash,

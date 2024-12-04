@@ -50,13 +50,14 @@ services:
 
   chainloader:
     build: .
-    restart: always
+    restart: on-failure
     image: "oreowallet"
     command: ./chain_loader --dbconfig /app/conf/dbconfig --node ${NODE_HOST}:${NODE_PORT} --verbosity ${VERBOSITY:-0}
     volumes:
        - conf:/app/conf
     depends_on:
-      - migration
+      migration:
+        condition: service_completed_successfully
     networks:
       - oreowallet_network
     ulimits:
@@ -77,8 +78,10 @@ services:
     ports:
       - "10002:10002"
     depends_on:
-      - migration
-      - chainloader
+      migration:
+        condition: service_completed_successfully
+      chainloader:
+        condition: service_started
     networks:
       - oreowallet_network
     ulimits:
@@ -106,8 +109,10 @@ services:
     volumes:
       - conf:/app/conf
     depends_on:
-      - migration
-      - chainloader
+      migration:
+        condition: service_completed_successfully
+      chainloader:
+        condition: service_started
     networks:
       - oreowallet_network
     ulimits:
@@ -134,8 +139,10 @@ services:
     volumes:
       - conf:/app/conf
     depends_on:
-      - migration
-      - chainloader
+      migration:
+        condition: service_completed_successfully
+      chainloader:
+        condition: service_started
     networks:
       oreowallet_network:
         ipv4_address: 172.19.0.10
@@ -155,8 +162,10 @@ services:
     image: "oreowallet"
     command: ./dworker --address 172.19.0.10:10001 --verbosity ${VERBOSITY:-0}
     depends_on:
-      - migration
-      - chainloader
+      migration:
+        condition: service_completed_successfully
+      chainloader:
+        condition: service_started
     networks:
       - oreowallet_network
     ulimits:
