@@ -1,50 +1,52 @@
-## 1. Overview
+<p align="center">
+  <img src="assets/logo.svg" width="80" alt="Logo for OreoWallet" />
+</p>
 
-This repo consists of `chain_loader`, `dservice`, `dworker`, `server` and `prover`, is the core service of `OreoWallet`.
+<h1 align="center">
+  OreoWallet-mono
+</h1>
 
-### 1.1 crates/server
-Core service stores imported viewKeys from users and serves as data provider of OreoWallet.
+<p align="center">
+  A repository maintains backend/server-side components that power OreoWallet.
+</p>
 
-### 1.2 crates/prover
-Standalone service to generate zk proof for user transactions, serves as prover of OreoWallet.
+<div align="center">
 
-### 1.3 crates/dservice
-Quickscan server to schedule decryption tasks among all connected dworkers.
+[![Twitter Follow](https://img.shields.io/twitter/follow/oreowallet?style=social)](https://twitter.com/oreowallet)
 
-### 1.4 crates/dworker
-Decryption worker connects to dservice and handles decryption tasks from dservice.
+</div>
 
-### 1.5 crates/chain_loader
-A tool to fetch blocks from rpc and save in local db for better performance during dservice getBlocks.
+## Introduction
 
-## 2. Guide-level explanation
+There are 4 types wallet for privacy blockchain like IronFish.
 
-![basic arch](assets/arch_v2.png)
+- Type1: Cex wallet, fully-custodial wallet.
+- Type2: PrivateKey is safely saved locally while viewkey is uploaded to a backend server for better experience. Transactions are signed locally while transaction decryption and utxos-indexing rely on customsized remote server.
+- Type3: Both transaction decryption and creation are performed locally while transaction fetching/broadcasting rely on a public remote rpc like metamask.
+- Type4: A wallet embedded with a full node, syncs blocks/transactions with P2P network directly.
 
-## Docker
+OreoWallet aims to build an easy-to-use Type2 extension wallet for Ironfish blockchain. To make OreoWallet easy to use, we need server-side transaction indexing, quick-scanning and fast proof generation, and this repo maintains necessary components mentioned above. 
 
-Build
+## Features
 
-```bash
-docker build -t oreowallet .
-```
+| Feature                  | Status |
+| ------------------------ | ------ |
+| Account creation/import  | ✅      |
+| IRON native token        | ✅      |
+| User created asset       | ✅      |
+| Orescriptions NFT        | ✅      |
+| Dapp provider            | ✅      |
+| Local data provider      | ✅      |
+| Local prover             | ✅      |
+| Privacy on routing layer | ✅      |
+| Quick scan               | ✅      |
+| ...                      | ...    |
 
-Run node:
-
-```bash
-ironfish start -d ~/.ironfish-testnet --rpc.http --rpc.http.port 9092 --rpc.http.host 0.0.0.0
-```
-
-Run
-
-```bash
-DB_USER=postgres \
-DB_PASSWORD=postgres \
-DB_PORT=5444 \
-NODE_HOST=host.docker.internal \
-NODE_PORT=9092 \
-SECRET_KEY=a0882c5ac5e2fa771dde52b2d5639734a4411df14f4748c6f991a96e5dd9f997 \
-PUBLIC_KEY=03221b2a0ebd9d6798aadee2861a5307ced1a33d143f34c571a98ab4fa534b7d3e \
-SERVER_PORT=8080 \
-docker-compose up
-```
+## Project structure
+<pre>
+OreoWallet
+├── crates/server: OreoWallet data provider, stores viewkey in db and handles api service
+├── crates/prover: OreoWallet prover, generate proof for IronFish transaction
+├── crates/scanner: OreoWallet scanner, quick scanning service
+├── crates/dworker: OreoWallet worker, running decryption taskes  
+</pre>

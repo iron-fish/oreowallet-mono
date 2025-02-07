@@ -1,18 +1,30 @@
-use std::{env, net::SocketAddr, sync::Arc, time::Duration};
-use axum_extra::{headers::{authorization::Basic, Authorization}, TypedHeader};
-use sha2::{Sha256, Digest};
-use std::str;
+use axum_extra::{
+    headers::{authorization::Basic, Authorization},
+    TypedHeader,
+};
+use params::{mainnet::Mainnet, network::Network, testnet::Testnet};
+use sha2::{Digest, Sha256};
+use std::str::{self, FromStr};
+use std::{net::SocketAddr, sync::Arc, time::Duration};
+use utils::Signer;
 
 use anyhow::Result;
 use axum::{
-    body::Body, error_handling::HandleErrorLayer, extract::State, http::{Request, StatusCode}, middleware::{from_fn_with_state,  Next}, response::IntoResponse, routing::{get, post}, BoxError, Router
+    body::Body,
+    error_handling::HandleErrorLayer,
+    extract::State,
+    http::{Request, StatusCode},
+    middleware::{from_fn_with_state, Next},
+    response::IntoResponse,
+    routing::{get, post},
+    BoxError, Router,
 };
-use db_handler::{DBHandler, PgHandler};
-use networking::{rpc_handler::RpcHandler, server_handler::ServerHandler};
+use db_handler::DBHandler;
+use networking::{rpc_abi::BlockInfo, rpc_handler::RpcHandler, server_handler::ServerHandler};
 use tokio::net::TcpListener;
 use tower::{timeout::TimeoutLayer, ServiceBuilder};
 use tower_http::cors::{Any, CorsLayer};
-use tracing::info;
+use tracing::{error, info};
 
 use crate::handlers::{
     account_status_handler, add_transaction_handler, create_transaction_handler,
@@ -23,49 +35,82 @@ use crate::handlers::{
 
 mod handlers;
 
-#[derive(Debug, Clone)]
-pub struct SecpKey {
-    pub sk: [u8; 32],
-    pub pk: [u8; 33],
-}
-
-#[derive(Debug, Clone)]
-pub struct SharedState<T: DBHandler> {
-    pub db_handler: T,
+pub struct SharedState {
+    pub db_handler: Box<dyn Send + Sync + DBHandler>,
     pub rpc_handler: RpcHandler,
     pub scan_handler: ServerHandler,
-    pub secp: SecpKey,
-    pub genesis_hash: String,
+    pub operator: Signer,
+    pub network: u8,
 }
 
-impl<T> SharedState<T>
-where
-    T: DBHandler,
-{
-    pub fn new(db_handler: T, endpoint: &str, scan: &str, secp: SecpKey, genesis_hash: String) -> Self {
+impl SharedState {
+    pub fn new(
+        db_handler: Box<dyn DBHandler + Send + Sync>,
+        endpoint: &str,
+        scan: &str,
+        operator: String,
+        network: u8,
+    ) -> Self {
+        let operator = Signer::from_str(&operator).expect("Invalid secret key used");
         Self {
             db_handler: db_handler,
             rpc_handler: RpcHandler::new(endpoint.into()),
             scan_handler: ServerHandler::new(scan.into()),
-            secp,
-            genesis_hash,
+            operator,
+            network,
+        }
+    }
+
+    pub fn network(&self) -> u8 {
+        self.network
+    }
+
+    pub fn genesis(&self) -> BlockInfo {
+        match self.network() {
+            Testnet::ID => BlockInfo {
+                hash: Testnet::GENESIS_BLOCK_HASH.to_string(),
+                sequence: Testnet::GENESIS_BLOCK_HEIGHT,
+            },
+            _ => BlockInfo {
+                hash: Mainnet::GENESIS_BLOCK_HASH.to_string(),
+                sequence: Mainnet::GENESIS_BLOCK_HEIGHT,
+            },
+        }
+    }
+
+    pub fn account_version(&self) -> u8 {
+        match self.network() {
+            Testnet::ID => Testnet::ACCOUNT_VERSION,
+            _ => Mainnet::ACCOUNT_VERSION,
+        }
+    }
+
+    pub fn set_account_limit(&self) -> usize {
+        match self.network() {
+            Testnet::ID => Testnet::SET_ACCOUNT_LIMIT,
+            _ => Mainnet::SET_ACCOUNT_LIMIT,
         }
     }
 }
 
+unsafe impl Send for SharedState {}
+unsafe impl Sync for SharedState {}
+
 // Authentication middleware function
-pub async fn auth<T: DBHandler>(
-    State(shared_state): State<Arc<SharedState<T>>>,
+pub async fn auth(
+    State(shared_state): State<Arc<SharedState>>,
     TypedHeader(Authorization(basic)): TypedHeader<Authorization<Basic>>,
-    req: Request<Body>, 
-    next: Next
-) -> impl IntoResponse 
-    where
-    T: DBHandler + Send + Sync + 'static,
-{
-    match shared_state.db_handler.get_account(basic.username().to_string()).await {
+    req: Request<Body>,
+    next: Next,
+) -> impl IntoResponse {
+    match shared_state
+        .db_handler
+        .get_account(basic.username().to_string())
+        .await
+    {
         Ok(account) => {
-            let bytes = hex::decode(account.vk).map_err(|_| (StatusCode::UNAUTHORIZED, "Invalid token"))?;
+            let bytes =
+                hex::decode(account.vk).map_err(|_| (StatusCode::UNAUTHORIZED, "Invalid token"))?;
             let token = Sha256::digest(bytes);
             let token_hex = hex::encode(token);
             if token_hex != basic.password() {
@@ -79,14 +124,13 @@ pub async fn auth<T: DBHandler>(
         }
     }
 }
-  
-pub async fn run_server(
+
+pub async fn run_server<N: Network>(
     listen: SocketAddr,
     rpc_server: String,
-    db_handler: PgHandler,
+    db_handler: Box<dyn DBHandler + Send + Sync>,
     scan: String,
-    sk_u8: [u8; 32],
-    pk_u8: [u8; 33],
+    operator: String,
 ) -> Result<()> {
     let genesis_hash;
     {
@@ -94,21 +138,26 @@ pub async fn run_server(
         let latest_block_response = temp_handler.get_latest_block()?.data;
         genesis_hash = latest_block_response.genesis_block_identifier.hash;
     }
+
     info!("Genesis hash: {}", genesis_hash);
+    if N::GENESIS_BLOCK_HASH.to_lowercase() != genesis_hash.to_lowercase() {
+        error!("Network genesis hash doesnt match, exit!");
+        return Ok(());
+    }
+
     let shared_resource = Arc::new(SharedState::new(
         db_handler,
         &rpc_server,
         &scan,
-        SecpKey {
-            sk: sk_u8,
-            pk: pk_u8,
-        },
-        genesis_hash,
+        operator,
+        N::ID,
     ));
     let auth_middleware = from_fn_with_state(shared_resource.clone(), auth);
 
     let no_auth_router = Router::new()
         .route("/import", post(import_account_handler))
+        .route("/healthCheck", get(health_check_handler))
+        .route("/updateScan", post(update_scan_status_handler))
         .with_state(shared_resource.clone());
 
     let mut auth_router = Router::new()
@@ -117,20 +166,16 @@ pub async fn run_server(
         .route("/getTransaction", post(get_transaction_handler))
         .route("/getTransactions", post(get_transactions_handler))
         .route("/createTx", post(create_transaction_handler))
-        .route("/broadcastTx", post(add_transaction_handler)) // TODO: Remove after front end updates to addTx
-        .route("/addTx", post(add_transaction_handler)) 
+        .route("/broadcastTx", post(add_transaction_handler))
+        .route("/addTx", post(add_transaction_handler))
         .route("/accountStatus", post(account_status_handler))
         .route("/latestBlock", get(latest_block_handler))
         .route("/ores", post(get_ores_handler))
         .route("/rescan", post(rescan_account_handler))
-        .route("/healthCheck", get(health_check_handler))
-        .route("/updateScan", post(update_scan_status_handler))
         .with_state(shared_resource.clone());
 
-    if env::var("ENABLE_AUTH").unwrap_or_else(|_| "false".to_string()) == "true" {
-        auth_router = auth_router.layer(auth_middleware);
-    }
-        
+    auth_router = auth_router.layer(auth_middleware);
+
     let router = no_auth_router
         .merge(auth_router)
         .layer(
@@ -138,7 +183,7 @@ pub async fn run_server(
                 .layer(HandleErrorLayer::new(|_: BoxError| async {
                     StatusCode::REQUEST_TIMEOUT
                 }))
-                .layer(TimeoutLayer::new(Duration::from_secs(30))),
+                .layer(TimeoutLayer::new(Duration::from_secs(60))),
         )
         .layer(
             CorsLayer::new()

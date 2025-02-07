@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use substring::Substring;
 use tracing::info;
 
-use crate::{config::DbConfig, Account, DBHandler, InnerBlock};
+use crate::{Account, DBHandler, InnerBlock};
 
 pub const REDIS_ACCOUNT_KEY: &str = "IRONACCOUNT";
 pub const REDIS_ACCOUNT_KEY_V1: &str = "IRONACCOUNTV1";
@@ -28,15 +28,6 @@ impl RedisClient {
 
     pub async fn get_con(&self) -> RedisResult<MultiplexedConnection> {
         self.client.get_multiplexed_async_connection().await
-    }
-
-    pub async fn set_str(&self, key: &str, value: &str, ttl_seconds: i64) -> RedisResult<()> {
-        let mut con = self.get_con().await?;
-        con.set(key, value).await?;
-        if ttl_seconds > 0 {
-            con.expire(key, ttl_seconds).await?;
-        }
-        Ok(())
     }
 
     pub async fn hset(&self, key: &str, field: &str, value: &str) -> RedisResult<()> {
@@ -69,6 +60,10 @@ impl RedisClient {
 
 #[async_trait::async_trait]
 impl DBHandler for RedisClient {
+    fn db_type(&self) -> String {
+        "Redis".to_string()
+    }
+
     async fn save_account(&self, account: Account, _worker_id: u32) -> Result<String, OreoError> {
         let address = account.address.clone();
         match self.hget(&self.db_name, &address).await {
@@ -148,16 +143,14 @@ impl DBHandler for RedisClient {
     async fn get_blocks(&self, _start: i64, _end: i64) -> Result<Vec<InnerBlock>, OreoError> {
         unimplemented!("Redis is deprecated for such feature!")
     }
-
-    fn from_config(config: &DbConfig) -> Self {
-        info!("Redis handler selected");
-        RedisClient::connect(&config.server_url(), config.default_pool_size).unwrap()
-    }
 }
 
 pub fn address_to_name(address: &str) -> String {
     address.substring(0, 10).into()
 }
+
+unsafe impl Send for RedisClient {}
+unsafe impl Sync for RedisClient {}
 
 #[cfg(test)]
 mod tests {
@@ -170,15 +163,13 @@ mod tests {
     //   Outgoing View Key  cee4ff41d7d8da5eedc6493134981eaad7b26a8b0291a4eac9ba95090fa47bf7
     //       Address  d63ba13d7c35caf942c64d5139b948b885ec931977a3f248c13e7f3c1bd0aa64
 
-    use constants::MAINNET_GENESIS_HASH;
-    use constants::MAINNET_GENESIS_SEQUENCE;
     use oreo_errors::OreoError;
 
     use super::address_to_name;
-    use super::RedisClient;
-    use crate::config::DbConfig;
+    use crate::load_db;
     use crate::Account;
     use crate::DBHandler;
+    use params::{mainnet::Mainnet, network::Network};
 
     const VK: &str = "4ae4eb9606ba57b3b17a444100a9ac6453cd67e6fe4c860e63a2e18b1200978ab5ecce68e8639d5016cbe73b0ea9a3c8e906fc881af2e9ccfa7a7b63fb73d555";
     const IN_VK: &str = "4a08bec0ec5a471352f340d737e4b3baec2aec8d0a2e12201d92d8ad71aadd07";
@@ -190,8 +181,8 @@ mod tests {
             name: address_to_name(ADDRESS),
             create_head: None,
             create_hash: None,
-            head: MAINNET_GENESIS_SEQUENCE,
-            hash: MAINNET_GENESIS_HASH.to_string(),
+            head: Mainnet::GENESIS_BLOCK_HEIGHT as i64,
+            hash: Mainnet::GENESIS_BLOCK_HASH.to_string(),
             in_vk: IN_VK.to_string(),
             out_vk: OUT_VK.to_string(),
             vk: VK.to_string(),
@@ -200,10 +191,8 @@ mod tests {
         }
     }
 
-    fn get_tdb() -> RedisClient {
-        let config = DbConfig::load("./fixtures/redis-config.yml").unwrap();
-        let db_handler = RedisClient::from_config(&config);
-        db_handler
+    fn get_tdb() -> Box<dyn DBHandler + Send + Sync> {
+        load_db("./fixtures/redis-config.yml").unwrap()
     }
 
     #[tokio::test]

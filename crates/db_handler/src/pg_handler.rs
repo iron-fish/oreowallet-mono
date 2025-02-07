@@ -1,8 +1,5 @@
-use std::str::FromStr;
-
-use futures::executor::block_on;
 use oreo_errors::OreoError;
-use sqlx::{postgres::PgConnectOptions, ConnectOptions, PgPool, Row};
+use sqlx::{PgPool, Row};
 
 use crate::{BonusAddress, DBTransaction, InnerBlock};
 
@@ -164,14 +161,8 @@ impl PgHandler {
 
 #[async_trait::async_trait]
 impl DBHandler for PgHandler {
-    fn from_config(config: &crate::config::DbConfig) -> Self {
-        let url = config.server_url();
-        let options = PgConnectOptions::from_str(&url)
-            .unwrap()
-            .disable_statement_logging()
-            .clone();
-        let pool = block_on(async { PgPool::connect_with(options).await.unwrap() });
-        Self::new(pool)
+    fn db_type(&self) -> String {
+        "Postgres".to_string()
     }
 
     async fn save_account(&self, account: Account, _worker_id: u32) -> Result<String, OreoError> {
@@ -246,11 +237,14 @@ impl DBHandler for PgHandler {
     }
 }
 
+unsafe impl Send for PgHandler {}
+unsafe impl Sync for PgHandler {}
+
 #[cfg(test)]
 mod tests {
     use std::path::Path;
 
-    use constants::{MAINNET_GENESIS_HASH, MAINNET_GENESIS_SEQUENCE};
+    use params::{mainnet::Mainnet, network::Network};
     use sqlx::types::Json;
     use sqlx_db_tester::TestPg;
 
@@ -275,8 +269,8 @@ mod tests {
             name: address_to_name(ADDRESS),
             create_head: None,
             create_hash: None,
-            head: MAINNET_GENESIS_SEQUENCE,
-            hash: MAINNET_GENESIS_HASH.to_string(),
+            head: Mainnet::GENESIS_BLOCK_HEIGHT as i64,
+            hash: Mainnet::GENESIS_BLOCK_HASH.to_string(),
             in_vk: IN_VK.to_string(),
             out_vk: OUT_VK.to_string(),
             vk: VK.to_string(),

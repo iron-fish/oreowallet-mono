@@ -1,4 +1,3 @@
-use constants::MAINNET_GENESIS_SEQUENCE;
 use db_handler::{address_to_name, Account};
 use oreo_errors::OreoError;
 use serde::{Deserialize, Serialize};
@@ -23,7 +22,7 @@ pub struct ImportAccountResponse {
 }
 
 impl ImportAccountRequest {
-    pub fn to_account(&self, genesis_hash: String) -> Account {
+    pub fn to_account(&self, genesis: BlockInfo) -> Account {
         let (create_head, create_hash) = match &self.created_at {
             Some(creat) => (Some(creat.sequence as i64), Some(creat.hash.clone())),
             None => (None, None),
@@ -33,8 +32,8 @@ impl ImportAccountRequest {
             name: address_to_name(&self.public_address),
             create_head,
             create_hash: create_hash.clone(),
-            head: create_head.unwrap_or(MAINNET_GENESIS_SEQUENCE),
-            hash: create_hash.unwrap_or(genesis_hash),
+            head: create_head.unwrap_or(genesis.sequence as i64),
+            hash: create_hash.unwrap_or(genesis.hash),
             in_vk: self.incoming_view_key.clone(),
             out_vk: self.outgoing_view_key.clone(),
             vk: self.view_key.clone(),
@@ -72,7 +71,8 @@ impl TransactionDetail {
             notes,
         } = tx;
         let notes = notes.unwrap();
-        let note = notes.iter()
+        let note = notes
+            .iter()
             .find(|asset| asset.owner != asset.sender)
             .or_else(|| notes.iter().find(|note| !note.memo.is_empty()))
             .or_else(|| notes.first());

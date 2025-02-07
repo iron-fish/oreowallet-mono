@@ -5,6 +5,8 @@ use tracing::info;
 
 use std::{fs, path::Path};
 
+use crate::DBType;
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DbConfig {
     pub host: String,
@@ -43,6 +45,14 @@ impl DbConfig {
 
     pub fn url(&self) -> String {
         format!("{}/{}", self.server_url(), self.dbname)
+    }
+
+    pub fn protocol(&self) -> DBType {
+        match self.protocol.as_str() {
+            "postgres" => DBType::Postgres,
+            "redis" => DBType::Redis,
+            _ => DBType::Unknown,
+        }
     }
 }
 

@@ -2,13 +2,12 @@
 resolver = "2"
 members = [
     "crates/networking",
-    "crates/constants",
     "crates/db_handler",
     "crates/oreo_errors",
     "crates/server",
     "crates/utils",
     "crates/prover",
     "crates/dworker",
-    "crates/dservice",
-    "crates/chain_loader", "crates/transfer-tool",
+    "crates/scanner",
+    "crates/params",
 ]

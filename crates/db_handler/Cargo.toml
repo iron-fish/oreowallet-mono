@@ -16,11 +16,11 @@ sqlx = { version = "0.7.0", features = ["runtime-tokio-rustls", "postgres"] }
 substring = "1.4.5"
 tracing = "0.1.40"
 oreo_errors = { path = "../oreo_errors" }
-constants = { path = "../constants" }
 redis = { version = "0.25.2", features = [
     "tokio-comp",
     "tokio-native-tls-comp",
 ] }
+params = { path = "../params" }
 
 [dev-dependencies]
 sqlx-db-tester = "0.4.0"

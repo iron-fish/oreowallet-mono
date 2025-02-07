@@ -1,5 +1,5 @@
 use axum::{response::IntoResponse, Json};
-use constants::IRON_NATIVE_ASSET;
+use params::network::Network;
 use serde::{Deserialize, Serialize};
 use ureq::json;
 
@@ -13,7 +13,7 @@ pub struct RpcResponse<T> {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct RpcResponseStream<T> {
-    pub data: T
+    pub data: T,
 }
 
 impl<T: Serialize> IntoResponse for RpcResponse<T> {
@@ -30,6 +30,14 @@ pub struct BlockInfo {
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct CreatedAt {
+    pub hash: String,
+    pub sequence: u64,
+    pub network_id: u8,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RpcImportAccountRequest {
     pub version: u8,
     pub name: String,
@@ -37,7 +45,7 @@ pub struct RpcImportAccountRequest {
     pub incoming_view_key: String,
     pub outgoing_view_key: String,
     pub public_address: String,
-    pub created_at: Option<BlockInfo>,
+    pub created_at: Option<CreatedAt>,
     pub spending_key: Option<String>,
 }
 
@@ -93,6 +101,7 @@ pub struct TransactionWithHash {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct BlockWithHash {
     pub hash: String,
+    pub sequence: i64,
     pub transactions: Vec<TransactionWithHash>,
 }
 
@@ -103,6 +112,14 @@ pub struct RpcSetAccountHeadRequest {
     pub end: String,
     pub blocks: Vec<BlockWithHash>,
     pub scan_complete: bool,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct RpcSetAccountHeadRequestV2 {
+    pub account: String,
+    pub start: String,
+    pub end: String,
+    pub blocks: Vec<BlockWithHash>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -135,6 +152,7 @@ pub struct AssetBalance {
     pub available: String,
     pub sequence: Option<u64>,
     pub asset_verification: AssetStatus,
+    pub decimals: Option<u8>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -144,14 +162,14 @@ pub struct RpcGetBalancesResponse {
 }
 
 impl RpcGetBalancesResponse {
-    pub fn verified_asset(base: Self) -> Self {
+    pub fn verified_asset<N: Network>(base: Self) -> Self {
         Self {
             balances: base
                 .balances
                 .into_iter()
                 .filter(|x| {
                     x.asset_verification.status == "verified".to_string()
-                        || x.asset_id == IRON_NATIVE_ASSET
+                        || x.asset_id == N::NATIVE_ASSET_ID.to_string()
                         || x.asset_name
                             == "6f7265736372697074696f6e7300000000000000000000000000000000000000"
                                 .to_string()
@@ -161,13 +179,13 @@ impl RpcGetBalancesResponse {
         }
     }
 
-    pub async fn ores(base: Self) -> Vec<Ores> {
+    pub async fn ores<N: Network>(base: Self) -> Vec<Ores> {
         let mut result = vec![];
         for asset in base.balances.iter() {
-            if !is_ores_local(asset) {
+            if !is_ores_local::<N>(asset) {
                 continue;
             }
-            if let Ok(ores) = get_ores(&asset.asset_id).await {
+            if let Ok(ores) = get_ores::<N>(&asset.asset_id).await {
                 result.push(ores);
             }
         }
@@ -186,10 +204,10 @@ pub struct OutPut {
 }
 
 impl OutPut {
-    pub fn from(base: OutPut) -> Self {
+    pub fn from<N: Network>(base: OutPut) -> Self {
         let memo = Some(base.memo.unwrap_or("".into()));
         let memo_hex = Some(base.memo_hex.unwrap_or("".into()));
-        let asset_id = Some(base.asset_id.unwrap_or(IRON_NATIVE_ASSET.into()));
+        let asset_id = Some(base.asset_id.unwrap_or(N::NATIVE_ASSET_ID.into()));
         Self {
             memo,
             memo_hex,
@@ -382,4 +400,21 @@ pub struct SendTransactionRequest {
 pub struct SendTransactionResponse {
     pub account: String,
     pub hash: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RpcAssetVerification {
+    pub status: String,
+    pub symbol: Option<String>,
+    pub decimals: Option<u8>,
+    pub logo_uri: Option<String>,
+    pub website: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RpcAsset {
+    pub id: String,
+    pub verification: RpcAssetVerification,
 }

@@ -8,17 +8,18 @@ use ureq::{Agent, AgentBuilder, Error, Response};
 
 use crate::{
     rpc_abi::{
-        RpcAddTxRequest, RpcAddTxResponse, RpcCreateTxRequest, RpcCreateTxResponse,
+        RpcAddTxRequest, RpcAddTxResponse, RpcAsset, RpcCreateTxRequest, RpcCreateTxResponse,
         RpcExportAccountResponse, RpcGetAccountStatusRequest, RpcGetAccountStatusResponse,
         RpcGetAccountTransactionRequest, RpcGetAccountTransactionResponse, RpcGetBalancesRequest,
         RpcGetBalancesResponse, RpcGetBlockRequest, RpcGetBlockResponse, RpcGetBlocksRequest,
         RpcGetBlocksResponse, RpcGetLatestBlockResponse, RpcGetTransactionsRequest,
         RpcGetTransactionsResponse, RpcImportAccountRequest, RpcImportAccountResponse,
         RpcRemoveAccountRequest, RpcRemoveAccountResponse, RpcResetAccountRequest, RpcResponse,
-        RpcSetAccountHeadRequest, RpcSetScanningRequest, SendTransactionRequest,
-        SendTransactionResponse, TransactionStatus,
+        RpcSetAccountHeadRequest, RpcSetAccountHeadRequestV2, RpcSetScanningRequest,
+        SendTransactionRequest, SendTransactionResponse, TransactionStatus,
     },
-    rpc_handler::RpcError, stream::ResponseExt,
+    rpc_handler::RpcError,
+    stream::ResponseExt,
 };
 
 #[derive(Debug, Clone)]
@@ -32,8 +33,8 @@ impl RpcHandler {
         Self {
             endpoint,
             agent: AgentBuilder::new()
-                .timeout_read(Duration::from_secs(5))
-                .timeout_write(Duration::from_secs(5))
+                .timeout_read(Duration::from_secs(30))
+                .timeout_write(Duration::from_secs(30))
                 .build(),
         }
     }
@@ -43,7 +44,8 @@ impl RpcHandler {
         request: RpcImportAccountRequest,
     ) -> Result<RpcResponse<RpcImportAccountResponse>, OreoError> {
         let path = format!("http://{}/wallet/importAccount", self.endpoint);
-        let account_str = serde_json::to_string(&request).map_err(|_|OreoError::InternalRpcError("JSON serialization failed".to_string()))?;
+        let account_str = serde_json::to_string(&request)
+            .map_err(|_| OreoError::InternalRpcError("JSON serialization failed".to_string()))?;
         let resp = self
             .agent
             .clone()
@@ -106,6 +108,19 @@ impl RpcHandler {
         &self,
         request: RpcSetAccountHeadRequest,
     ) -> Result<RpcResponse<Option<()>>, OreoError> {
+        let RpcSetAccountHeadRequest {
+            account,
+            start,
+            end,
+            blocks,
+            ..
+        } = request;
+        let request = RpcSetAccountHeadRequestV2 {
+            account,
+            start,
+            end,
+            blocks,
+        };
         let path = format!("http://{}/wallet/setAccountHead", self.endpoint);
         let resp = self.agent.clone().post(&path).send_json(&request);
         handle_response(resp)
@@ -144,13 +159,12 @@ impl RpcHandler {
     ) -> Result<RpcResponse<RpcGetTransactionsResponse>, OreoError> {
         let path = format!("http://{}/wallet/getAccountTransactions", self.endpoint);
         let resp = self.agent.clone().post(&path).send_json(&request);
-    
+
         match resp {
             Ok(response) => {
-                let transactions: Result<Vec<_>, OreoError> = response
-                    .into_stream::<TransactionStatus>()
-                    .collect();
-    
+                let transactions: Result<Vec<_>, OreoError> =
+                    response.into_stream::<TransactionStatus>().collect();
+
                 Ok(RpcResponse {
                     status: 200,
                     data: RpcGetTransactionsResponse {
@@ -209,7 +223,11 @@ impl RpcHandler {
             .agent
             .clone()
             .post(&path)
-            .send_json(RpcGetBlocksRequest { start, end, serialized: true });
+            .send_json(RpcGetBlocksRequest {
+                start,
+                end,
+                serialized: true,
+            });
         handle_response(resp)
     }
 
@@ -219,6 +237,12 @@ impl RpcHandler {
     ) -> Result<RpcResponse<SendTransactionResponse>, OreoError> {
         let path = format!("http://{}/wallet/sendTransaction", self.endpoint);
         let resp = self.agent.clone().post(&path).send_json(request);
+        handle_response(resp)
+    }
+
+    pub fn get_asset(&self, id: String) -> Result<RpcResponse<RpcAsset>, OreoError> {
+        let path = format!("http://{}/chain/getAsset", self.endpoint);
+        let resp = self.agent.clone().post(&path).send_json(json!({"id": id}));
         handle_response(resp)
     }
 }
@@ -294,6 +318,18 @@ mod tests {
             reset_created_at: Some(false),
             reset_scanning_enabled: Some(false),
         });
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    pub fn get_asset_should_work() {
+        let rpc_handler = RpcHandler::new("127.0.0.1:8021".into());
+        let header = rpc_handler.get_latest_block();
+        println!("chain header {:?}", header);
+        let result = rpc_handler.get_asset(
+            "8e36e31d677a47cbd883843a345654c814b1e9ec1e0125bac9031f052ced9174".to_string(),
+        );
+        println!("asset info: {:?}", result);
         assert!(result.is_ok());
     }
 }

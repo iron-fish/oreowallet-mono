@@ -2,7 +2,11 @@ mod config;
 mod pg_handler;
 mod redis_handler;
 
+use std::{path::Path, str::FromStr};
+
+use anyhow::anyhow;
 pub use config::DbConfig;
+use futures::executor::block_on;
 pub use pg_handler::*;
 pub use redis_handler::*;
 
@@ -10,13 +14,13 @@ pub use sqlx::types::Json;
 
 use oreo_errors::OreoError;
 use serde::{Deserialize, Serialize};
-use sqlx::FromRow;
+use sqlx::{postgres::PgConnectOptions, ConnectOptions, FromRow, PgPool};
 use substring::Substring;
 
 #[async_trait::async_trait]
 pub trait DBHandler {
-    /// Initialize a DB handler
-    fn from_config(config: &DbConfig) -> Self;
+    //// DB type: postgres and redis for now
+    fn db_type(&self) -> String;
     /// Save account in db and return account name
     async fn save_account(&self, account: Account, worker_id: u32) -> Result<String, OreoError>;
     /// Get account name from db
@@ -74,4 +78,40 @@ pub struct InnerBlock {
 pub struct BonusAddress {
     pub address: String,
     pub paid: bool,
+}
+
+pub enum DBType {
+    Postgres,
+    Redis,
+    Unknown,
+}
+
+impl DbConfig {
+    pub fn build(&self) -> anyhow::Result<Box<dyn DBHandler + Send + Sync>> {
+        match self.protocol() {
+            DBType::Postgres => {
+                let url = self.server_url();
+                let options = PgConnectOptions::from_str(&url)
+                    .unwrap()
+                    .disable_statement_logging()
+                    .clone();
+                let pool = block_on(async { PgPool::connect_with(options).await });
+                match pool {
+                    Ok(pool) => Ok(Box::new(PgHandler::new(pool))),
+                    Err(e) => Err(anyhow!("Failed to connect pgsql {}", e)),
+                }
+            }
+            DBType::Redis => {
+                let client = RedisClient::connect(&self.server_url(), self.default_pool_size)?;
+                Ok(Box::new(client))
+            }
+            DBType::Unknown => {
+                panic!("Invalid database used")
+            }
+        }
+    }
+}
+
+pub fn load_db(filename: impl AsRef<Path>) -> anyhow::Result<Box<dyn DBHandler + Send + Sync>> {
+    DbConfig::load(filename)?.build()
 }

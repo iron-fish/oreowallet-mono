@@ -8,7 +8,6 @@ edition = "2021"
 [dependencies]
 serde = { version = "1.0.199", features = ["derive"] }
 serde_json = "1.0.111"
-constants = { path = "../constants" }
 oreo_errors = { path = "../oreo_errors" }
 db_handler = { path = "../db_handler" }
 anyhow = "1.0.82"
@@ -22,6 +21,7 @@ uuid = { version = "1.8.0", features = [
     "fast-rng",          # Use a faster (but still sufficiently random) RNG
     "macro-diagnostics", # Enable better diagnostics for compile-time UUIDs
 ] }
+params = { path = "../params" }
 
 [dev-dependencies]
 tokio = { version = "1.35.1", features = ["full"] }

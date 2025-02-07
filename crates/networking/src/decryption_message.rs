@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::rpc_abi::BlockInfo;
 pub use crate::rpc_abi::RpcSetAccountHeadRequest as ScanResponse;
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct DecryptionMessage<T> {
     pub message: T,
     pub signature: String,

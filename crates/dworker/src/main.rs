@@ -1,29 +1,16 @@
 use anyhow::Result;
-use clap::Parser;
 use dworker::start_worker;
 use rand::Rng;
-use std::net::SocketAddr;
 use tracing::info;
-use utils::{handle_signals, initialize_logger};
-
-#[derive(Parser, Debug)]
-#[command(version, about)]
-struct Cli {
-    /// scheduler to connect to
-    #[arg(short, long)]
-    address: SocketAddr,
-    /// worker name
-    #[arg(short, long)]
-    name: Option<String>,
-    /// Set your logger level
-    #[clap(short, long, default_value = "0")]
-    pub verbosity: u8,
-}
+use utils::{
+    handle_signals, initialize_logger, initialize_logger_filter, EnvFilter, Parser, Worker,
+};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let mut args = Cli::parse();
+    let mut args = Worker::parse();
     initialize_logger(args.verbosity);
+    initialize_logger_filter(EnvFilter::from_default_env());
     handle_signals().await?;
     if args.name.is_none() {
         args.name = Some(

@@ -8,20 +8,20 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.79"
 axum = { version = "0.7.3", features = ["macros"] }
-clap = { version = "4.4.13", features = ["derive"] }
 serde_json = "1.0.111"
 tokio = { version = "1.35.1", features = ["full"] }
 tower = { version = "0.4.13", features = ["timeout"] }
 tower-http = { version = "0.5.0", features = ["cors"] }
 tracing = "0.1.40"
 utils = { path = "../utils" }
-constants = { path = "../constants" }
 oreo_errors = { path = "../oreo_errors" }
 db_handler = { path = "../db_handler" }
 networking = { path = "../networking" }
-ironfish_rust = { package = "ironfish", git = "https://github.com/iron-fish/ironfish.git", branch = "master" }
-ironfish_zkp = { package = "ironfish_zkp", git = "https://github.com/iron-fish/ironfish.git", branch = "master" }
-ironfish-bellperson = { version = "0.1.0", features = ["groth16"] }
+ironfish_rust = { package = "ironfish", git = "https://github.com/oreoslabs/ironfish-optimize.git", branch = "feature/support-wasm" }
+ironfish_zkp = { package = "ironfish_zkp", git = "https://github.com/oreoslabs/ironfish-optimize.git", branch = "feature/support-wasm" }
+bellperson = { git = "https://github.com/iron-fish/bellperson.git", branch = "blstrs", features = [
+    "groth16",
+] }
 blst = "=0.3.10"
 blstrs = { version = "0.6.0", features = ["portable"] }
 rand = "0.8.5"
