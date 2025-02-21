@@ -264,8 +264,7 @@ async fn update_scan_status(
         message.account = account.name.clone();
         let mut blocks = message.blocks.clone();
         blocks.sort_by(|a, b| b.sequence.cmp(&a.sequence));
-        let mut start_hash = String::new();
-        let mut end_hash;
+        let mut start_hash = message.start.clone();
         loop {
             let mut message = message.clone();
             let mut limited_blocks = Vec::with_capacity(batch_size);
@@ -278,21 +277,18 @@ async fn update_scan_status(
             if !first_request && limited_blocks.is_empty() {
                 break;
             }
-            if !first_request {
-                message.start = start_hash;
-            }
+            message.start = start_hash.clone();
             if !limited_blocks.is_empty() && !blocks.is_empty() {
-                end_hash = limited_blocks.last().unwrap().hash.clone();
-            } else {
-                end_hash = message.end.clone();
+                let last_block = limited_blocks.last().unwrap();
+                message.end = last_block.hash.clone();
+                let q = shared.rpc_handler.get_blocks(last_block.sequence as u64, last_block.sequence as u64 + 1)?;
+                start_hash = q.data.blocks[q.data.blocks.len() - 1].block.hash.clone();
             }
 
-            message.end = end_hash.clone();
             message.blocks = limited_blocks;
             shared.rpc_handler.set_account_head(message)?;
             {
                 first_request = false;
-                start_hash = end_hash;
             }
         }
         if scan_complete {
@@ -430,6 +426,7 @@ pub async fn get_transactions_handler(
         .get_transactions(RpcGetTransactionsRequest {
             account: db_account.unwrap().name,
             limit: Some(get_transactions.limit.unwrap_or(6)),
+            offset: Some(get_transactions.offset.unwrap_or(0)),
             reverse: Some(true),
         })
         .into_response()
@@ -469,7 +466,7 @@ pub async fn create_transaction_handler(
         .create_transaction(RpcCreateTxRequest {
             account: db_account.unwrap().name,
             outputs: Some(outputs),
-            fee: Some(create_transaction.fee.unwrap_or("1".into())),
+            fee: create_transaction.fee,
             expiration_delta: Some(create_transaction.expiration_delta.unwrap_or(30)),
             mints: Some(mints),
             burns: Some(burns),

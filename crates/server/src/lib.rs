@@ -157,6 +157,7 @@ pub async fn run_server<N: Network>(
     let no_auth_router = Router::new()
         .route("/import", post(import_account_handler))
         .route("/healthCheck", get(health_check_handler))
+        .route("/latestBlock", get(latest_block_handler))
         .route("/updateScan", post(update_scan_status_handler))
         .with_state(shared_resource.clone());
 
@@ -169,7 +170,6 @@ pub async fn run_server<N: Network>(
         .route("/broadcastTx", post(add_transaction_handler))
         .route("/addTx", post(add_transaction_handler))
         .route("/accountStatus", post(account_status_handler))
-        .route("/latestBlock", get(latest_block_handler))
         .route("/ores", post(get_ores_handler))
         .route("/rescan", post(rescan_account_handler))
         .with_state(shared_resource.clone());

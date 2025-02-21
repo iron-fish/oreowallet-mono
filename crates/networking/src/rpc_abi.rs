@@ -264,6 +264,7 @@ pub struct RpcAddTxResponse {
 pub struct RpcGetTransactionsRequest {
     pub account: String,
     pub limit: Option<u32>,
+    pub offset: Option<u32>,
     pub reverse: Option<bool>,
 }
 
